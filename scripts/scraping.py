@@ -1,6 +1,6 @@
 import time
-import datetime
-import csv
+import pandas as pd
+from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -9,9 +9,8 @@ from selenium.webdriver.support.ui import WebDriverWait, Select
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
-# 🔹 Configurar opciones del navegador (modo visible, NO headless)
+# 🔹 Configurar navegador
 chrome_options = Options()
-# chrome_options.add_argument("--headless")  # ❌ NO usar headless para ver el navegador
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
 
@@ -25,53 +24,40 @@ driver.get(url)
 
 # 🔹 Esperar a que la página cargue completamente
 time.sleep(5)
+wait = WebDriverWait(driver, 10)
 
 # 🔹 Cerrar el popup de cookies si aparece
 try:
-    wait = WebDriverWait(driver, 5)
     boton_cookies = wait.until(EC.element_to_be_clickable((By.XPATH, '//button[contains(text(), "Solo usar cookies necesarias")]')))
     boton_cookies.click()
     print("✅ Popup de cookies cerrado.")
 except:
     print("⚠️ No se encontró el popup de cookies o ya estaba cerrado.")
 
-# 🔹 Seleccionar la fecha "Desde"
-wait = WebDriverWait(driver, 15)
-try:
-    fecha_desde = wait.until(EC.element_to_be_clickable((By.XPATH, '//input[contains(@class, "c-buscador-sorteos__input-fecha-inicial")]')))
-    fecha_desde.click()
-    time.sleep(2)
+# 🔹 Función para seleccionar una fecha en el calendario
+def seleccionar_fecha(id_input, dia, mes, anio):
+    fecha_input = driver.find_element(By.ID, id_input)
+    fecha_input.click()
+    time.sleep(1)
     
-    Select(driver.find_element(By.XPATH, '//*[@id="ui-datepicker-div"]/div/div/select[1]')).select_by_value("0")  # Enero
-    Select(driver.find_element(By.XPATH, '//*[@id="ui-datepicker-div"]/div/div/select[2]')).select_by_value("1995")
+    # Seleccionar mes y año
+    select_mes = Select(driver.find_element(By.XPATH, '//*[@id="ui-datepicker-div"]/div/div/select[1]'))
+    select_mes.select_by_value(str(mes))
+    select_anio = Select(driver.find_element(By.XPATH, '//*[@id="ui-datepicker-div"]/div/div/select[2]'))
+    select_anio.select_by_value(str(anio))
     
-    driver.find_element(By.XPATH, '//table[@class="ui-datepicker-calendar"]//a[text()="1"]').click()
-    print("✅ Fecha 'Desde' seleccionada: 01/01/1995")
-except:
-    print("❌ No se pudo seleccionar la fecha 'Desde'.")
-    driver.quit()
-    exit()
+    # Seleccionar día
+    dia_elemento = driver.find_element(By.XPATH, f'//a[text()="{dia}"]')
+    dia_elemento.click()
 
-# 🔹 Seleccionar la fecha "Hasta" con la fecha actual
-fecha_actual = datetime.datetime.now()
-mes_actual = str(fecha_actual.month - 1)  # Los valores de los meses van de 0 a 11
-anio_actual = str(fecha_actual.year)
-dia_actual = str(fecha_actual.day)
+# 🔹 Seleccionar fecha DESDE (1 de enero de 1995)
+seleccionar_fecha("qa_resultadoSorteo-buscador-fechaDesde-LNAC", 1, 0, 1995)  # Meses van de 0 a 11
+print("✅ Fecha DESDE establecida: 01/01/1995")
 
-try:
-    fecha_hasta = wait.until(EC.element_to_be_clickable((By.XPATH, '//input[contains(@class, "c-buscador-sorteos__input-fecha-final")]')))
-    fecha_hasta.click()
-    time.sleep(2)
-
-    Select(driver.find_element(By.XPATH, '//*[@id="ui-datepicker-div"]/div/div/select[1]')).select_by_value(mes_actual)
-    Select(driver.find_element(By.XPATH, '//*[@id="ui-datepicker-div"]/div/div/select[2]')).select_by_value(anio_actual)
-
-    driver.find_element(By.XPATH, f'//table[@class="ui-datepicker-calendar"]//a[text()="{dia_actual}"]').click()
-    print(f"✅ Fecha 'Hasta' seleccionada: {fecha_actual.strftime('%d/%m/%Y')}")
-except:
-    print("❌ No se pudo seleccionar la fecha 'Hasta'.")
-    driver.quit()
-    exit()
+# 🔹 Seleccionar fecha HASTA (hoy)
+hoy = datetime.now()
+seleccionar_fecha("qa_resultadoSorteo-buscador-fechaHasta-LNAC", hoy.day, hoy.month - 1, hoy.year)
+print(f"✅ Fecha HASTA establecida: {hoy.strftime('%d/%m/%Y')}")
 
 # 🔹 Hacer clic en el botón "Buscar"
 try:
@@ -80,56 +66,76 @@ try:
     print("✅ Botón 'Buscar' presionado.")
 
     # 🔹 Esperar hasta que aparezcan los resultados
-    wait.until(EC.presence_of_element_located((By.XPATH, '//div[contains(@id, "qa_resultadoSorteo-sorteo-LNAC")]')))
+    wait.until(EC.presence_of_element_located((By.CLASS_NAME, "r-resultados-buscador")))
     print("✅ Resultados de sorteos cargados.")
 except:
     print("❌ No se encontraron sorteos después de la búsqueda.")
     driver.quit()
     exit()
 
-# 🔹 Esperar a que aparezcan los resultados
-try:
-    primer_sorteo = wait.until(EC.presence_of_element_located((By.XPATH, '//div[contains(@id, "qa_resultadoSorteo-sorteo-LNAC")]')))
-    print("✅ Resultados de sorteos cargados.")
-except:
-    print("❌ No se encontraron sorteos.")
-    driver.quit()
-    exit()
+# 🔹 Obtener contenedor principal de resultados
+contenedor_resultados = driver.find_element(By.CLASS_NAME, "r-resultados-buscador")
 
-# 🔹 Extraer datos del primer sorteo
-try:
-    fecha_sorteo = driver.find_element(By.XPATH, '//*[@id="qa_resultadoSorteo-fecha-LNAC-0"]/span').text
-    # primer_premio = driver.find_element(By.XPATH, '//h3[contains(text(), "1ER PREMIO")]/following-sibling::p').text
-    # segundo_premio = driver.find_element(By.XPATH, '//h3[contains(text(), "2º PREMIO")]/following-sibling::p').text
+# 🔹 Obtener todos los sorteos dentro del contenedor
+sorteos = contenedor_resultados.find_elements(By.CLASS_NAME, "c-resultado-sorteo--loteria-nacional-sabado")
 
-    print(f"📅 Fecha Sorteo: {fecha_sorteo}")
-    # print(f"🥇 1er Premio: {primer_premio}")
-    # print(f"🥈 2º Premio: {segundo_premio}")
-except:
-    print("❌ No se pudo extraer la información del primer sorteo.")
-    driver.quit()
-    exit()
+# Lista para almacenar los datos
+resultados = []
 
-# # 🔹 Abrir la pestaña "+ Info" para ver agraciados
-# try:
-#     boton_info = driver.find_element(By.XPATH, '//a[contains(text(), "+ Info")]')
-#     boton_info.click()
-#     time.sleep(2)
+# 🔹 Iterar sobre cada sorteo y extraer la información
+for sorteo in sorteos:
+    try:
+        # 📅 Extraer la fecha del sorteo
+        fecha_sorteo = sorteo.find_element(By.XPATH, './/p[contains(@id, "qa_resultadoSorteo-fecha")]').text.strip()
+        
+        # 🔹 Buscar la tabla de premios dentro del sorteo
+        try:
+            tabla = sorteo.find_element(By.XPATH, './/table[contains(@id, "qa_resultadoSorteo-escrutinio")]')
+            filas = tabla.find_elements(By.TAG_NAME, 'tr')
 
-#     agraciados = driver.find_element(By.XPATH, '//table[contains(@class, "c-resultado-sorteo--detalles")]').text
-#     print(f"🎟️ Agraciados: {agraciados}")
-# except:
-#     print("⚠️ No se encontró información de agraciados.")
+            # Iterar sobre cada fila de la tabla (omitir encabezados)
+            for fila in filas[1:]:
+                columnas = fila.find_elements(By.TAG_NAME, 'td')
+                if len(columnas) >= 2:
+                    categoria = columnas[0].text.strip()
+                    premio = columnas[1].text.strip()
+                    
+                    # 🔹 Buscar y hacer clic en el botón de agraciados si existe
+                    try:
+                        boton_agraciados = columnas[2].find_element(By.TAG_NAME, 'a')
+                        boton_agraciados.click()
+                        time.sleep(2)  # Esperar a que cargue la información
+                        
+                        # Extraer información de agraciados
+                        ubicaciones = driver.find_elements(By.CLASS_NAME, 'ubicaciones')
+                        for ubicacion in ubicaciones:
+                            direccion = ubicacion.find_element(By.XPATH, './/span[contains(text(), "Dirección:")]/following-sibling::span').text.strip()
+                            poblacion = ubicacion.find_element(By.XPATH, './/span[contains(text(), "Población:")]/following-sibling::span').text.strip()
+                            provincia = ubicacion.find_element(By.XPATH, './/span[contains(text(), "Provincia:")]/following-sibling::span').text.strip()
+                            codigo_postal = ubicacion.find_element(By.XPATH, './/span[contains(text(), "Código Postal:")]/following-sibling::span').text.strip()
+                            telefono = ubicacion.find_element(By.XPATH, './/span[contains(text(), "Teléfono:")]/following-sibling::span').text.strip()
 
-# 🔹 Guardar la información en un archivo CSV
-csv_file = "data/raw/loteria_nacional.csv"
+                            print(f"📍 {categoria} - {direccion}, {poblacion}, {provincia} ({codigo_postal}), Tel: {telefono}")
+                            
+                            resultados.append([fecha_sorteo, categoria, premio, direccion, poblacion, provincia, codigo_postal, telefono])
+                        
+                        # Cerrar el modal
+                        driver.find_element(By.CLASS_NAME, "ui-dialog-titlebar-close").click()
+                        time.sleep(1)
+                    except:
+                        resultados.append([fecha_sorteo, categoria, premio, "N/A", "N/A", "N/A", "N/A", "N/A"])
+        except:
+            print(f"⚠️ No se encontró tabla de premios para el sorteo {fecha_sorteo}")
+    except Exception as e:
+        print(f"⚠️ Error extrayendo datos del sorteo: {e}")
 
-with open(csv_file, mode="a", newline="", encoding="utf-8") as file:
-    writer = csv.writer(file)
-    writer.writerow(["Fecha Sorteo"])
-    writer.writerow([fecha_sorteo])
+# 🔹 Convertir a DataFrame de pandas y mostrar en consola
+df = pd.DataFrame(resultados, columns=["Fecha Sorteo", "Categoría", "Premio", "Dirección", "Población", "Provincia", "Código Postal", "Teléfono"])
+print("\n📊 Datos extraídos:\n", df)
 
-print(f"✅ Datos guardados en {csv_file}")
+# 🔹 Guardar en CSV
+df.to_csv('data/raw/resultados_loteria_nacional.csv', index=False)
+print("✅ Datos guardados en 'data/raw/resultados_loteria_nacional.csv'.")
 
 # 🔹 Cerrar el navegador
 driver.quit()
