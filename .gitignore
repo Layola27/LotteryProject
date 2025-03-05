@@ -1,2 +1,9 @@
 venv/
 comandos_git.txt
+venv/
+__pycache__/
+.ipynb_checkpoints/
+data/raw/
+data/processed/
+*.csv
+
