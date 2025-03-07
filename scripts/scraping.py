@@ -19,28 +19,35 @@ from datetime import datetime
 import json
 
 # 🔹 Configuración del navegador
+print("🌐 Configurando el navegador...")
 chrome_options = Options()
 chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-dev-shm-usage")
+chrome_options.add_argument("--window-size=1920,1080")
 # chrome_options.add_argument("--headless")  # Para ejecución en segundo plano
+chrome_options.add_argument("--enable-logging")
+chrome_options.add_argument("--v=1")
 
 # 🔹 Iniciar WebDriver
+print("🚗 Iniciando WebDriver...")
 service = Service(ChromeDriverManager().install())
 driver = webdriver.Chrome(service=service, options=chrome_options)
 wait = WebDriverWait(driver, 10)
 
 # 🔹 URL de la página
+print("🔗 Navegando a la página de resultados de la Lotería Nacional...")
 url = "https://www.loteriasyapuestas.es/es/resultados/loteria-nacional"
 driver.get(url)
 
 # 📌 Cargar todos los resultados disponibles presionando el botón "Más Resultados"
+print("🔄 Cargando todos los resultados disponibles...")
 def cargar_todos_los_resultados(driver):
     boton_mas_resultados_xpath = '//*[@id="qa_resultadoSorteo-buscador-botonMasResultados-LNAC"]'
 
     while True:
         try:
             # Buscar el botón "Más Resultados"
-            boton = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, boton_mas_resultados_xpath)))
+            boton = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.XPATH, boton_mas_resultados_xpath)))
             
             # Desplazar hasta el botón y hacer clic
             driver.execute_script("arguments[0].scrollIntoView();", boton)
@@ -49,26 +56,31 @@ def cargar_todos_los_resultados(driver):
             print("✅ Se presionó el botón 'Más Resultados'.")
 
             # Esperar un momento para que carguen los nuevos sorteos
-            time.sleep(10)
+            time.sleep(15)
 
         except Exception as e:
             print("🚀 No hay más resultados para cargar.")
             break  # Salir del bucle si el botón ya no está disponible
 
 # 🔹 Esperar carga de la página
-time.sleep(5)
+print("⏳ Esperando que la página cargue completamente...")
+time.sleep(10)
 
 # 🔹 Cerrar popup de cookies si aparece
+print("🍪 Verificando popup de cookies...")
 try:
     boton_cookies = wait.until(EC.element_to_be_clickable((By.XPATH, '//button[contains(text(), "Solo usar cookies necesarias")]')))
     boton_cookies.click()
+    print("✅ Popup de cookies cerrado.")
 except:
     print("⚠️ No se encontró el popup de cookies o ya estaba cerrado.")
 
 # 🔹 Obtener todos los sorteos visibles en la página
+print("🔍 Obteniendo sorteos visibles en la página...")
 sorteos = driver.find_elements(By.CLASS_NAME, "c-resultado-sorteo--loteria-nacional-sabado")
 
 # 🔹 Función para seleccionar una fecha en el calendario
+print("📅 Seleccionando fechas en el calendario...")
 def seleccionar_fecha(id_input, dia, mes, anio):
     fecha_input = driver.find_element(By.ID, id_input)
     fecha_input.click()
@@ -85,21 +97,25 @@ def seleccionar_fecha(id_input, dia, mes, anio):
     dia_elemento.click()
 
 # 🔹 Seleccionar fecha DESDE (1 de enero de 1995)
+print("📅 Estableciendo fecha DESDE...")
 seleccionar_fecha("qa_resultadoSorteo-buscador-fechaDesde-LNAC", 1, 0, 1995)  # Meses van de 0 a 11
 print("✅ Fecha DESDE establecida: 01/01/1995")
 
 # 🔹 Seleccionar fecha HASTA (hoy)
+print("📅 Estableciendo fecha HASTA...")
 hoy = datetime.now()
 seleccionar_fecha("qa_resultadoSorteo-buscador-fechaHasta-LNAC", hoy.day, hoy.month - 1, hoy.year)
 print(f"✅ Fecha HASTA establecida: {hoy.strftime('%d/%m/%Y')}")
 
 # 🔹 Hacer clic en el botón "Buscar"
+print("🔍 Haciendo clic en el botón 'Buscar'...")
 try:
     boton_buscar = wait.until(EC.element_to_be_clickable((By.XPATH, '//button[contains(text(), "Buscar")]')))
     boton_buscar.click()
     print("✅ Botón 'Buscar' presionado.")
 
     # 🔹 Esperar hasta que aparezcan los resultados
+    print("⏳ Esperando que los resultados de sorteos carguen...")
     wait.until(EC.presence_of_element_located((By.CLASS_NAME, "r-resultados-buscador")))
     print("✅ Resultados de sorteos cargados.")
     
@@ -109,6 +125,7 @@ except:
     exit()
 
 # Llamar la función antes de iniciar la extracción de datos
+print("🔄 Iniciando carga de todos los resultados...")
 cargar_todos_los_resultados(driver)
 
 # Lista para almacenar los resultados
@@ -117,7 +134,11 @@ resultados = []
 # Conjunto para almacenar todas las categorías de premios dinámicamente
 categorias_globales = set()
 
+print("🔄 Iniciando extracción de datos de sorteos...")
+
 for i in range(200):  # Ajusta 'num_sorteos' con el total de sorteos a extraer
+
+    print(f"🔍 Procesando sorteo {i+1}...")
 
     # 📌 Hacer clic en el botón "+ Info" para expandir los detalles
     try:
@@ -139,31 +160,41 @@ for i in range(200):  # Ajusta 'num_sorteos' con el total de sorteos a extraer
         continue  # Si no se puede abrir el sorteo, pasamos al siguiente
 
     # 📌 Extraer la fecha del sorteo
+    print(f"📅 Extrayendo fecha del sorteo {i+1}...")
     try:
         fecha_sorteo_xpath = f'//*[@id="qa_resultadoSorteo-fecha-LNAC-{i}"]'
         fecha_sorteo_element = WebDriverWait(driver, 5).until(EC.visibility_of_element_located((By.XPATH, fecha_sorteo_xpath)))
         fecha_sorteo = fecha_sorteo_element.text.strip()
+        print(f"✅ Fecha del sorteo {i+1} extraída: {fecha_sorteo}")
     except:
         fecha_sorteo = "N/A"
+        print(f"⚠️ No se pudo extraer la fecha del sorteo {i+1}.")
 
     # 📌 Extraer el tipo de sorteo
+    print(f"🏷️ Extrayendo tipo de sorteo {i+1}...")
     try:
         tipo_sorteo_xpath = f'//*[@id="qa_resultadoSorteo-nombreSorteo-LNAC-{i}"]'
         tipo_sorteo_element = driver.find_element(By.XPATH, tipo_sorteo_xpath)
         tipo_sorteo = tipo_sorteo_element.text.strip() if tipo_sorteo_element.text.strip() else "Sorteo Regular"
+        print(f"✅ Tipo de sorteo {i+1} extraído: {tipo_sorteo}")
     except:
         tipo_sorteo = "Sorteo Regular"
+        print(f"⚠️ No se pudo extraer el tipo de sorteo {i+1}.")
 
     # 📌 Extraer reintegros correctamente
+    print(f"🔢 Extrayendo reintegros del sorteo {i+1}...")
     try:
         reintegro_xpath = f'//*[@id="qa_resultadoSorteo-sorteo-LNAC-{i}"]//ul[@class="c-resultado-sorteo__reintegros"]/li'
         reintegro_elementos = driver.find_elements(By.XPATH, reintegro_xpath)
         reintegros = [elem.text.strip().replace("R", "").strip() for elem in reintegro_elementos if elem.text.strip()]
         reintegro_lista = ", ".join(reintegros) if reintegros else "N/A"
+        print(f"✅ Reintegros del sorteo {i+1} extraídos: {reintegro_lista}")
     except:
         reintegro_lista = "N/A"
+        print(f"⚠️ No se pudo extraer los reintegros del sorteo {i+1}.")
 
     # 📌 Extraer fracción y serie (si existen)
+    print(f"🔢 Extrayendo fracción y serie del sorteo {i+1}...")
     try:
         fraccion_xpath = f'//*[@id="qa_resultadoSorteo-fraccion-LNAC-{i}"]'
         serie_xpath = f'//*[@id="qa_resultadoSorteo-serie-LNAC-{i}"]'
@@ -173,12 +204,13 @@ for i in range(200):  # Ajusta 'num_sorteos' con el total de sorteos a extraer
 
         fraccion = fraccion_element[0].text.strip() if fraccion_element else "N/A"
         serie = serie_element[0].text.strip() if serie_element else "N/A"
+        print(f"✅ Fracción y serie del sorteo {i+1} extraídas: Fracción - {fraccion}, Serie - {serie}")
     except:
         fraccion, serie = "N/A", "N/A"
-
-
+        print(f"⚠️ No se pudo extraer la fracción y serie del sorteo {i+1}.")
 
     # 📌 Extraer premios dinámicamente
+    print(f"🏆 Extrayendo premios del sorteo {i+1}...")
     try:
         categorias_xpath = f'//*[@id="qa_resultadoSorteo-escrutinio-LNAC-{i}"]//span[contains(@class, "c-resultado-escrutinio__categoria")]'
         premios_xpath = f'//*[@id="qa_resultadoSorteo-escrutinio-LNAC-{i}"]//span[contains(@class, "c-resultado-escrutinio__premios")]'
@@ -195,14 +227,14 @@ for i in range(200):  # Ajusta 'num_sorteos' con el total de sorteos a extraer
 
         # Agregar categorías al conjunto global
         categorias_globales.update(premios_dict.keys())
+        print(f"✅ Premios del sorteo {i+1} extraídos.")
 
     except Exception as e:
         print(f"⚠️ No se pudieron extraer los premios del sorteo {i}: {e}")
         premios_dict = {}
 
-
-
     # 📌 Extraer puntos de venta de los premios principales (1º y 2º premio)
+    print(f"🏠 Extrayendo puntos de venta de premios principales del sorteo {i+1}...")
     premios_puntos_venta = {}
 
     # XPaths específicos del 1er y 2º premio
@@ -210,6 +242,27 @@ for i in range(200):  # Ajusta 'num_sorteos' con el total de sorteos a extraer
         "1er Premio": f'//*[@id="qa_resultadoSorteo-premio-LNAC-{i}G10"]',
         "2º Premio": f'//*[@id="qa_resultadoSorteo-premio-LNAC-{i}Z11"]'
     }
+
+    # 📌 Extraer números del 1er y 2º premio
+    print(f"🔢 Extrayendo números del 1er y 2º premio del sorteo {i+1}...")
+    numero_premios = {}
+
+    for categoria, premio_xpath in premios_xpaths.items():
+        try:
+            # Encontrar el elemento del premio
+            premio_elementos = driver.find_elements(By.XPATH, premio_xpath)
+
+            if premio_elementos:
+                numero_premio = premio_elementos[0].text.strip()
+                numero_premios[categoria] = numero_premio
+                print(f"✅ Número del {categoria} extraído: {numero_premio}")
+            else:
+                numero_premios[categoria] = "N/A"
+                print(f"⚠️ No se encontró el número del {categoria}.")
+
+        except Exception as e:
+            print(f"⚠️ No se pudo obtener el número del premio para {categoria} en el sorteo {i}: {e}")
+            numero_premios[categoria] = "N/A"
 
     for categoria, premio_xpath in premios_xpaths.items():
         try:
@@ -275,14 +328,17 @@ for i in range(200):  # Ajusta 'num_sorteos' con el total de sorteos a extraer
             print(f"⚠️ No se pudo obtener información del punto de venta para {categoria} en el sorteo {i}: {e}")
             premios_puntos_venta[categoria] = json.dumps([])
 
-
     # 📌 Construcción del resultado del sorteo
+    print(f"📝 Construyendo resultado del sorteo {i+1}...")
     resultado_fila = {
+        "ID Sorteo": f"Sorteo-{i+1}",  # Agregar identificador único
         "Fecha Sorteo": fecha_sorteo,
         "Tipo Sorteo": tipo_sorteo,
         "Reintegros": reintegro_lista,
         "Fracción": fraccion,
         "Serie": serie,
+        "1er Premio - Número": numero_premios.get("1er Premio", "N/A"),
+        "2º Premio - Número": numero_premios.get("2º Premio", "N/A")
     }
 
     # 📌 Agregar premios y sus puntos de venta al diccionario
@@ -295,7 +351,10 @@ for i in range(200):  # Ajusta 'num_sorteos' con el total de sorteos a extraer
     # 📌 Agregar la fila a la lista de resultados
     resultados.append(resultado_fila)
     
+    print(f"✅ Sorteo {i+1} procesado y agregado a los resultados.")
+
 # Guardar CSV con timestamp
+print("💾 Guardando resultados en archivo CSV...")
 timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
 file_name = f"data/raw/resultados_loteria_nacional-{timestamp}.csv"
 df = pd.DataFrame(resultados)
@@ -303,10 +362,7 @@ df.to_csv(file_name, index=False)
 
 print(f"✅ Datos guardados en '{file_name}'.")
 
-
-# # 🔹 Guardar en CSV
-# df.to_csv("data/raw/resultados_loteria_nacional.csv", index=False)
-# print("✅ Datos guardados en 'data/raw/resultados_loteria_nacional.csv'.")
-
 # 🔹 Cerrar el navegador
+print("🔒 Cerrando el navegador...")
 driver.quit()
+print("🚀 Proceso completado.")
