@@ -10,12 +10,6 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import Select
 from datetime import datetime
 from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-import pandas as pd
-from datetime import datetime
 import json
 
 # 🔹 Configuración del navegador
@@ -39,6 +33,20 @@ print("🔗 Navegando a la página de resultados de la Lotería Nacional...")
 url = "https://www.loteriasyapuestas.es/es/resultados/loteria-nacional"
 driver.get(url)
 
+
+# 🔹 Esperar carga de la página
+print("⏳ Esperando que la página cargue completamente...")
+time.sleep(5)
+
+# 🔹 Cerrar popup de cookies si aparece
+print("🍪 Verificando popup de cookies...")
+try:
+    boton_cookies = wait.until(EC.element_to_be_clickable((By.XPATH, '//button[contains(text(), "Solo usar cookies necesarias")]')))
+    boton_cookies.click()
+    print("✅ Popup de cookies cerrado.")
+except:
+    print("⚠️ No se encontró el popup de cookies o ya estaba cerrado.")
+
 # 📌 Cargar todos los resultados disponibles presionando el botón "Más Resultados"
 print("🔄 Cargando todos los resultados disponibles...")
 def cargar_todos_los_resultados(driver):
@@ -61,19 +69,6 @@ def cargar_todos_los_resultados(driver):
         except Exception as e:
             print("🚀 No hay más resultados para cargar.")
             break  # Salir del bucle si el botón ya no está disponible
-
-# 🔹 Esperar carga de la página
-print("⏳ Esperando que la página cargue completamente...")
-time.sleep(10)
-
-# 🔹 Cerrar popup de cookies si aparece
-print("🍪 Verificando popup de cookies...")
-try:
-    boton_cookies = wait.until(EC.element_to_be_clickable((By.XPATH, '//button[contains(text(), "Solo usar cookies necesarias")]')))
-    boton_cookies.click()
-    print("✅ Popup de cookies cerrado.")
-except:
-    print("⚠️ No se encontró el popup de cookies o ya estaba cerrado.")
 
 # 🔹 Obtener todos los sorteos visibles en la página
 print("🔍 Obteniendo sorteos visibles en la página...")
@@ -136,9 +131,23 @@ categorias_globales = set()
 
 print("🔄 Iniciando extracción de datos de sorteos...")
 
-for i in range(200):  # Ajusta 'num_sorteos' con el total de sorteos a extraer
+# Recalcular XPaths después de cargar más resultados
+def recalcular_xpaths(i):
+    return {
+        "1er Premio": f'//*[@id="qa_resultadoSorteo-sorteo-LNAC-{i}"]//a[contains(@id, "premio-LNAC-") and contains(@id, "G10")]',
+        "2º Premio": f'//*[@id="qa_resultadoSorteo-sorteo-LNAC-{i}"]//a[contains(@id, "premio-LNAC-") and contains(@id, "Z11")]'
+    }
 
+# Registrar el tiempo de inicio
+inicio = time.time()
+print(f"⏱️ Proceso iniciado a las {time.strftime('%H:%M:%S', time.localtime(inicio))}")
+
+# Cambiar el bucle para extraer todos los sorteos disponibles
+for i in range(len(sorteos)):
     print(f"🔍 Procesando sorteo {i+1}...")
+    
+    # Recalcular XPaths para el sorteo actual
+    premios_xpaths = recalcular_xpaths(i)
 
     # 📌 Hacer clic en el botón "+ Info" para expandir los detalles
     try:
@@ -194,7 +203,7 @@ for i in range(200):  # Ajusta 'num_sorteos' con el total de sorteos a extraer
         print(f"⚠️ No se pudo extraer los reintegros del sorteo {i+1}.")
 
     # 📌 Extraer fracción y serie (si existen)
-    print(f"🔢 Extrayendo fracción y serie del sorteo {i+1}...")
+    print(f" Extrayendo fracción y serie del sorteo {i+1}...")
     try:
         fraccion_xpath = f'//*[@id="qa_resultadoSorteo-fraccion-LNAC-{i}"]'
         serie_xpath = f'//*[@id="qa_resultadoSorteo-serie-LNAC-{i}"]'
@@ -236,12 +245,6 @@ for i in range(200):  # Ajusta 'num_sorteos' con el total de sorteos a extraer
     # 📌 Extraer puntos de venta de los premios principales (1º y 2º premio)
     print(f"🏠 Extrayendo puntos de venta de premios principales del sorteo {i+1}...")
     premios_puntos_venta = {}
-
-    # XPaths específicos del 1er y 2º premio
-    premios_xpaths = {
-        "1er Premio": f'//*[@id="qa_resultadoSorteo-premio-LNAC-{i}G10"]',
-        "2º Premio": f'//*[@id="qa_resultadoSorteo-premio-LNAC-{i}Z11"]'
-    }
 
     # 📌 Extraer números del 1er y 2º premio
     print(f"🔢 Extrayendo números del 1er y 2º premio del sorteo {i+1}...")
@@ -352,6 +355,11 @@ for i in range(200):  # Ajusta 'num_sorteos' con el total de sorteos a extraer
     resultados.append(resultado_fila)
     
     print(f"✅ Sorteo {i+1} procesado y agregado a los resultados.")
+
+# Registrar el tiempo de finalización
+fin = time.time()
+print(f"⏱️ Proceso finalizado a las {time.strftime('%H:%M:%S', time.localtime(fin))}")
+print(f"⏳ Duración total: {fin - inicio:.2f} segundos")
 
 # Guardar CSV con timestamp
 print("💾 Guardando resultados en archivo CSV...")
