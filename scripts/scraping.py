@@ -10,6 +10,12 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import Select
 from datetime import datetime
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import pandas as pd
+from datetime import datetime
 import json
 
 # 🔹 Configuración del navegador
@@ -138,12 +144,7 @@ def recalcular_xpaths(i):
         "2º Premio": f'//*[@id="qa_resultadoSorteo-sorteo-LNAC-{i}"]//a[contains(@id, "premio-LNAC-") and contains(@id, "Z11")]'
     }
 
-# Registrar el tiempo de inicio
-inicio = time.time()
-print(f"⏱️ Proceso iniciado a las {time.strftime('%H:%M:%S', time.localtime(inicio))}")
-
-# Cambiar el bucle para extraer todos los sorteos disponibles
-for i in range(len(sorteos)):
+for i in range(10000):  # Ajusta 'num_sorteos' con el total de sorteos a extraer
     print(f"🔍 Procesando sorteo {i+1}...")
     
     # Recalcular XPaths para el sorteo actual
@@ -355,11 +356,6 @@ for i in range(len(sorteos)):
     resultados.append(resultado_fila)
     
     print(f"✅ Sorteo {i+1} procesado y agregado a los resultados.")
-
-# Registrar el tiempo de finalización
-fin = time.time()
-print(f"⏱️ Proceso finalizado a las {time.strftime('%H:%M:%S', time.localtime(fin))}")
-print(f"⏳ Duración total: {fin - inicio:.2f} segundos")
 
 # Guardar CSV con timestamp
 print("💾 Guardando resultados en archivo CSV...")
